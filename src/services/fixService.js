@@ -1,15 +1,15 @@
-// src/services/fixService.js - CREATE THIS FILE
+const path = require("path");
+require("dotenv").config({
+  path: path.resolve(__dirname, "../../.env"),
+});
+
 const axios = require("axios");
-const OpenAI = require("openai");
+const openaiService = require("./openaiService"); // Changed from direct OpenAI import
 const Issue = require("../models/Issue");
 const PullRequest = require("../models/PullRequest");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService"); // ADD THIS
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const auditService = require("./auditService");
 
 class FixService {
   /**
@@ -18,6 +18,7 @@ class FixService {
   async fixIssue(issueId, userId) {
     try {
       console.log(`🔧 Starting fix generation for issue: ${issueId}`);
+      console.log("OpenAI Key Status:", openaiService.getAllKeyStatus());
 
       // Get issue details
       const issue = await Issue.findById(issueId);
@@ -231,9 +232,8 @@ Requirements:
 Return ONLY the fixed code, no explanations, no markdown formatting, just the raw code.`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
+      const response = await openaiService.chatCompletion(
+        [
           {
             role: "system",
             content:
@@ -244,9 +244,12 @@ Return ONLY the fixed code, no explanations, no markdown formatting, just the ra
             content: prompt,
           },
         ],
-        temperature: 0.2,
-        max_tokens: 4000,
-      });
+        {
+          model: "gpt-4.1-mini",
+          temperature: 0.2,
+          max_tokens: 3000,
+        }
+      );
 
       let fixedContent = response.choices[0].message.content.trim();
 
@@ -256,10 +259,17 @@ Return ONLY the fixed code, no explanations, no markdown formatting, just the ra
         .replace(/\n```$/i, "");
 
       console.log("✅ AI generated fix successfully");
-
       return fixedContent;
     } catch (error) {
       console.error("❌ AI fix generation failed:", error.message);
+
+      // Check if it's a quota error
+      if (error.message.includes("quota") || error.status === 429) {
+        throw new Error(
+          "All OpenAI API keys have exceeded quota. Please add more keys."
+        );
+      }
+
       throw new Error(`AI fix generation failed: ${error.message}`);
     }
   }

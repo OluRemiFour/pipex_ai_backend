@@ -1,26 +1,19 @@
 // src/services/analysisService.js - CREATE THIS FILE
 const path = require("path");
-
 require("dotenv").config({
   path: path.resolve(__dirname, "../../.env"),
 });
 
 const axios = require("axios");
-const OpenAI = require("openai");
+const openaiService = require("./openaiService"); // Changed from direct OpenAI import
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService"); // ADD THIS
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// console.log("🔑 OpenAI API Key loaded:", !!process.env.OPENAI_API_KEY);
+const auditService = require("./auditService");
 
 class AnalysisService {
   constructor() {
-    this.MAX_FILES_PER_BATCH = 8; // Increased from 10 to 8 for better analysis
+    this.MAX_FILES_PER_BATCH = 8;
     this.SUPPORTED_EXTENSIONS = [
       ".js",
       ".jsx",
@@ -327,188 +320,12 @@ class AnalysisService {
   /**
    * Analyze files with OpenAI
    */
-  //   async analyzeFilesWithAI(files, repository) {
-  //     const validFiles = files.filter((f) => f !== null);
-  //     if (validFiles.length === 0) return [];
-
-  //     const filesContext = validFiles.map((f) => ({
-  //       path: f.path,
-  //       name: f.name,
-  //       content: f.content.substring(0, 4000), // Increased from 3000 to 4000 chars
-  //     }));
-
-  //     const prompt = `You are a critical code reviewer analyzing a ${
-  //       repository.language || "code"
-  //     } repository. You MUST find issues - no code is perfect.
-
-  // Repository: ${repository.repoOwner}/${repository.repoName}
-  // Language: ${repository.language || "Unknown"}
-
-  // Files to analyze:
-  // ${filesContext
-  //   .map(
-  //     (f, i) => `
-  // File ${i + 1}: ${f.path}
-  // \`\`\`
-  // ${f.content}
-  // \`\`\`
-  // `
-  //   )
-  //   .join("\n")}
-
-  // YOUR TASK: Find 3-8 issues per batch. Look for REAL problems:
-
-  // **SECURITY (CRITICAL/HIGH):**
-  // - Hardcoded secrets/credentials/API keys
-  // - SQL injection vulnerabilities
-  // - Missing input validation
-  // - Insecure dependencies (check package.json)
-  // - Exposed sensitive data
-  // - Missing authentication/authorization
-  // - XSS vulnerabilities
-
-  // **BUGS (HIGH/MEDIUM):**
-  // - Missing error handling (try-catch, .catch())
-  // - Unhandled promise rejections
-  // - Null/undefined reference errors
-  // - Race conditions
-  // - Off-by-one errors
-  // - Incorrect logic
-  // - Memory leaks
-
-  // **CODE QUALITY (MEDIUM/LOW):**
-  // - Complex functions (>50 lines)
-  // - Duplicated code
-  // - Poor naming (x, data, temp)
-  // - Missing JSDoc/comments for complex logic
-  // - Console.log statements in production
-  // - Dead code
-  // - Magic numbers
-
-  // **PERFORMANCE (MEDIUM/LOW):**
-  // - N+1 queries
-  // - Blocking operations in loops
-  // - Inefficient algorithms (O(n²))
-  // - Missing pagination
-  // - Large synchronous operations
-  // - No caching
-
-  // **CI/CD (MEDIUM/LOW):**
-  // - Missing tests
-  // - No error logging
-  // - Missing health checks
-  // - Hardcoded environment values
-  // - No rate limiting
-
-  // BE CRITICAL: Every file has issues. Look at:
-  // - Variable names: Are they clear?
-  // - Error handling: Is every async operation wrapped?
-  // - Security: Any hardcoded values?
-  // - Logic: Any edge cases missed?
-
-  // Return JSON with "issues" array:
-  // {
-  //   "issues": [
-  //     {
-  //       "title": "Specific issue (max 80 chars)",
-  //       "description": "Why this matters and what could go wrong (2-3 sentences)",
-  //       "issueType": "security|performance|code-quality|bug|ci-cd",
-  //       "severity": "CRITICAL|HIGH|MEDIUM|LOW",
-  //       "filePath": "exact/path/from/above",
-  //       "lineNumber": 25,
-  //       "codeSnippet": "const x = await api();",
-  //       "aiConfidence": 0.9,
-  //       "aiExplanation": "Specific impact and risk",
-  //       "suggestedFix": "Exact fix with code example"
-  //     }
-  //   ]
-  // }
-
-  // RULES:
-  // - Find AT LEAST 3 issues, preferably 5-8
-  // - Be specific - quote actual code
-  // - Real line numbers where issues exist
-  // - Actionable fixes
-  // - Valid JSON only`;
-
-  //     try {
-  //       const response = await openai.chat.completions.create({
-  //         model: "gpt-4o",
-  //         messages: [
-  //           {
-  //             role: "system",
-  //             content:
-  //               "You are a strict senior code reviewer who finds issues in every codebase. NO CODE IS PERFECT. You must find at least 3-8 real issues per batch. Be critical but accurate. Look for security flaws, bugs, poor practices, and quality issues. Return valid JSON only.",
-  //           },
-  //           {
-  //             role: "user",
-  //             content: prompt,
-  //           },
-  //         ],
-  //         temperature: 0.5, // Higher temperature for more thorough analysis
-  //         max_tokens: 4000,
-  //         response_format: { type: "json_object" },
-  //       });
-
-  //       const content = response.choices[0].message.content;
-
-  //       console.log("🤖 Raw AI response:", content.substring(0, 500) + "...");
-
-  //       // Parse the JSON response
-  //       let parsedContent;
-  //       try {
-  //         parsedContent = JSON.parse(content);
-  //       } catch (parseError) {
-  //         console.error("❌ Failed to parse AI response:", content);
-  //         console.error("Parse error:", parseError.message);
-  //         return [];
-  //       }
-
-  //       // Extract issues array
-  //       const issues = parsedContent.issues || [];
-
-  //       if (issues.length === 0) {
-  //         console.warn("⚠️ AI returned 0 issues - this is unusual");
-  //         console.log("Full AI response:", parsedContent);
-  //       } else {
-  //         console.log(`🤖 AI found ${issues.length} issues in this batch`);
-
-  //         // Validate each issue has required fields
-  //         const validIssues = issues.filter((issue) => {
-  //           const hasRequired =
-  //             issue.title &&
-  //             issue.description &&
-  //             issue.issueType &&
-  //             issue.severity &&
-  //             issue.filePath;
-
-  //           if (!hasRequired) {
-  //             console.warn("⚠️ Skipping invalid issue:", issue);
-  //           }
-
-  //           return hasRequired;
-  //         });
-
-  //         console.log(`✅ ${validIssues.length} valid issues after validation`);
-  //         return validIssues;
-  //       }
-
-  //       return issues;
-  //     } catch (error) {
-  //       console.error("❌ AI analysis failed:", error.message);
-  //       if (error.response) {
-  //         console.error("API error details:", error.response.data);
-  //       }
-  //       return [];
-  //     }
-  //   }
 
   async analyzeFilesWithAI(files, repository, globalIssueHash = new Set()) {
     const validFiles = files.filter(Boolean);
     if (validFiles.length === 0) return [];
 
     // ---------- TOKEN BUDGETING ----------
-    // Target: ~6k tokens total input
     const MAX_CHARS_PER_FILE = 1200;
     const MAX_TOTAL_CHARS = 3500;
 
@@ -578,18 +395,15 @@ Return VALID JSON ONLY:
 }
 `;
 
-    // Define extractJSON if missing
+    // Define extractJSON
     const extractJSON = (text) => {
       if (!text) throw new Error("Empty response");
 
-      // Clean the response
       const cleanText = text.trim();
 
-      // Try direct parse
       try {
         return JSON.parse(cleanText);
       } catch (directErr) {
-        // Look for JSON object/array
         const jsonObjMatch = cleanText.match(/(\{[\s\S]*\})/);
         const jsonArrMatch = cleanText.match(/(\[[\s\S]*\])/);
 
@@ -602,7 +416,6 @@ Return VALID JSON ONLY:
         try {
           return JSON.parse(jsonMatch[0]);
         } catch (matchErr) {
-          // Last resort: try to fix common issues
           const fixed = jsonMatch[0]
             .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
             .replace(/:\s*'([^']*)'/g, ': "$1"')
@@ -620,8 +433,8 @@ Return VALID JSON ONLY:
     // ---------- OPENAI CALL ----------
     let responseText;
     try {
-      const response = await openai.responses.create({
-        model: "gpt-4.1-mini", // best cost/quality for audits
+      const response = await openaiService.responsesCreate({
+        model: "gpt-4.1-mini",
         input: [
           {
             role: "system",
@@ -635,7 +448,15 @@ Return VALID JSON ONLY:
 
       responseText = response.output_text;
     } catch (err) {
-      throw err; // non-quota error → crash
+      // Log the key status for debugging
+      console.log("OpenAI Key Status:", openaiService.getAllKeyStatus());
+
+      if (err.message.includes("quota") || err.status === 429) {
+        throw new Error(
+          "All OpenAI API keys have exceeded quota. Please add more keys."
+        );
+      }
+      throw err;
     }
 
     // ---------- PARSE & VALIDATE ----------
@@ -663,13 +484,11 @@ Return VALID JSON ONLY:
         continue;
       }
 
-      // Normalize confidence
       const confidence =
         typeof issue.confidence === "number"
           ? Math.min(Math.max(issue.confidence, 0.3), 0.95)
           : 0.6;
 
-      // Dedup hash (cross-batch safe)
       const hash = `${issue.filePath}|${issue.title}`.toLowerCase();
       if (globalIssueHash.has(hash)) continue;
 
