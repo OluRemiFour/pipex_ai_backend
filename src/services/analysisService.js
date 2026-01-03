@@ -10,17 +10,7 @@ const OpenAI = require("openai");
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService");
-const {
-  getClient,
-  rotateKey,
-  isQuotaError,
-  getKeyCount,
-} = require("../utils/openaiKeyManager");
-let responseText;
-let lastError;
-
-const maxAttempts = getKeyCount();
+const auditService = require("./auditService"); // ADD THIS
 
 // const openai = new OpenAI({
 //   apiKey: process.env.OPENAI_API_KEY,
@@ -588,74 +578,29 @@ Return VALID JSON ONLY:
 `;
 
     // ---------- OPENAI CALL ----------
-    // let responseText;
-    // try {
-    //   const response = await openai.responses.create({
-    //     model: "gpt-4.1-mini", // best cost/quality for audits
-    //     input: [
-    //       {
-    //         role: "system",
-    //         content:
-    //           "You are a strict senior engineer. You MUST find real issues. Return valid JSON only.",
-    //       },
-    //       { role: "user", content: prompt },
-    //     ],
-    //     max_output_tokens: 2000,
-    //   });
+    let responseText;
+    try {
+      const response = await openai.responses.create({
+        model: "gpt-4.1-mini", // best cost/quality for audits
+        input: [
+          {
+            role: "system",
+            content:
+              "You are a strict senior engineer. You MUST find real issues. Return valid JSON only.",
+          },
+          { role: "user", content: prompt },
+        ],
+        max_output_tokens: 2000,
+      });
 
-    //   responseText = response.output_text;
-    // } catch (err) {
-    //   console.error("❌ OpenAI request failed:", err.message);
-    //   throw new Error(err.message);
-    // }
+      responseText = response.output_text;
+    } catch (err) {
+      lastError = err;
 
-    // // ---------- PARSE & VALIDATE ----------
-    // let parsed;
-    // try {
-    //   parsed = JSON.parse(responseText);
-    // } catch {
-    //   console.error("❌ Invalid JSON from AI:", responseText);
-    //   throw new Error("AI returned invalid JSON");
-    // }
-
-    // if (!Array.isArray(parsed.issues) || parsed.issues.length === 0) {
-    //   console.error("❌ AI returned no issues:", parsed);
-    //   throw new Error("AI returned zero issues");
-    // }
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const openai = getClient();
-
-        const response = await openai.responses.create({
-          model: "gpt-4.1-mini",
-          input: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: prompt },
-          ],
-          max_output_tokens: 2000,
-          temperature: 0.2,
-        });
-
-        responseText = response.output_text;
-        break; // ✅ success
-      } catch (err) {
-        lastError = err;
-
-        if (isQuotaError(err)) {
-          console.error("⚠️ Quota exceeded — rotating OpenAI key");
-          rotateKey();
-          continue;
-        }
-
-        throw err; // non-quota error → fail fast
-      }
+      throw err; // non-quota error → crash
     }
 
-    if (!responseText) {
-      throw new Error(`OpenAI unavailable: all ${maxAttempts} keys exhausted`);
-    }
-
+    // ---------- PARSE & VALIDATE ----------
     let parsed;
     try {
       parsed = extractJSON(responseText);
