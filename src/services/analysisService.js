@@ -595,8 +595,6 @@ Return VALID JSON ONLY:
 
       responseText = response.output_text;
     } catch (err) {
-      lastError = err;
-
       throw err; // non-quota error → crash
     }
 
