@@ -1,3 +1,4 @@
+// src/services/analysisService.js - CREATE THIS FILE
 const path = require("path");
 
 require("dotenv").config({
@@ -9,11 +10,13 @@ const OpenAI = require("openai");
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService");
+const auditService = require("./auditService"); // ADD THIS
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+console.log("🔑 OpenAI API Key loaded:", !!process.env.OPENAI_API_KEY);
 
 class AnalysisService {
   constructor() {
@@ -324,28 +327,219 @@ class AnalysisService {
   /**
    * Analyze files with OpenAI
    */
-  async analyzeFilesWithAI(files, repository) {
-    const validFiles = files.filter((f) => f !== null);
+  //   async analyzeFilesWithAI(files, repository) {
+  //     const validFiles = files.filter((f) => f !== null);
+  //     if (validFiles.length === 0) return [];
+
+  //     const filesContext = validFiles.map((f) => ({
+  //       path: f.path,
+  //       name: f.name,
+  //       content: f.content.substring(0, 4000), // Increased from 3000 to 4000 chars
+  //     }));
+
+  //     const prompt = `You are a critical code reviewer analyzing a ${
+  //       repository.language || "code"
+  //     } repository. You MUST find issues - no code is perfect.
+
+  // Repository: ${repository.repoOwner}/${repository.repoName}
+  // Language: ${repository.language || "Unknown"}
+
+  // Files to analyze:
+  // ${filesContext
+  //   .map(
+  //     (f, i) => `
+  // File ${i + 1}: ${f.path}
+  // \`\`\`
+  // ${f.content}
+  // \`\`\`
+  // `
+  //   )
+  //   .join("\n")}
+
+  // YOUR TASK: Find 3-8 issues per batch. Look for REAL problems:
+
+  // **SECURITY (CRITICAL/HIGH):**
+  // - Hardcoded secrets/credentials/API keys
+  // - SQL injection vulnerabilities
+  // - Missing input validation
+  // - Insecure dependencies (check package.json)
+  // - Exposed sensitive data
+  // - Missing authentication/authorization
+  // - XSS vulnerabilities
+
+  // **BUGS (HIGH/MEDIUM):**
+  // - Missing error handling (try-catch, .catch())
+  // - Unhandled promise rejections
+  // - Null/undefined reference errors
+  // - Race conditions
+  // - Off-by-one errors
+  // - Incorrect logic
+  // - Memory leaks
+
+  // **CODE QUALITY (MEDIUM/LOW):**
+  // - Complex functions (>50 lines)
+  // - Duplicated code
+  // - Poor naming (x, data, temp)
+  // - Missing JSDoc/comments for complex logic
+  // - Console.log statements in production
+  // - Dead code
+  // - Magic numbers
+
+  // **PERFORMANCE (MEDIUM/LOW):**
+  // - N+1 queries
+  // - Blocking operations in loops
+  // - Inefficient algorithms (O(n²))
+  // - Missing pagination
+  // - Large synchronous operations
+  // - No caching
+
+  // **CI/CD (MEDIUM/LOW):**
+  // - Missing tests
+  // - No error logging
+  // - Missing health checks
+  // - Hardcoded environment values
+  // - No rate limiting
+
+  // BE CRITICAL: Every file has issues. Look at:
+  // - Variable names: Are they clear?
+  // - Error handling: Is every async operation wrapped?
+  // - Security: Any hardcoded values?
+  // - Logic: Any edge cases missed?
+
+  // Return JSON with "issues" array:
+  // {
+  //   "issues": [
+  //     {
+  //       "title": "Specific issue (max 80 chars)",
+  //       "description": "Why this matters and what could go wrong (2-3 sentences)",
+  //       "issueType": "security|performance|code-quality|bug|ci-cd",
+  //       "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+  //       "filePath": "exact/path/from/above",
+  //       "lineNumber": 25,
+  //       "codeSnippet": "const x = await api();",
+  //       "aiConfidence": 0.9,
+  //       "aiExplanation": "Specific impact and risk",
+  //       "suggestedFix": "Exact fix with code example"
+  //     }
+  //   ]
+  // }
+
+  // RULES:
+  // - Find AT LEAST 3 issues, preferably 5-8
+  // - Be specific - quote actual code
+  // - Real line numbers where issues exist
+  // - Actionable fixes
+  // - Valid JSON only`;
+
+  //     try {
+  //       const response = await openai.chat.completions.create({
+  //         model: "gpt-4o",
+  //         messages: [
+  //           {
+  //             role: "system",
+  //             content:
+  //               "You are a strict senior code reviewer who finds issues in every codebase. NO CODE IS PERFECT. You must find at least 3-8 real issues per batch. Be critical but accurate. Look for security flaws, bugs, poor practices, and quality issues. Return valid JSON only.",
+  //           },
+  //           {
+  //             role: "user",
+  //             content: prompt,
+  //           },
+  //         ],
+  //         temperature: 0.5, // Higher temperature for more thorough analysis
+  //         max_tokens: 4000,
+  //         response_format: { type: "json_object" },
+  //       });
+
+  //       const content = response.choices[0].message.content;
+
+  //       console.log("🤖 Raw AI response:", content.substring(0, 500) + "...");
+
+  //       // Parse the JSON response
+  //       let parsedContent;
+  //       try {
+  //         parsedContent = JSON.parse(content);
+  //       } catch (parseError) {
+  //         console.error("❌ Failed to parse AI response:", content);
+  //         console.error("Parse error:", parseError.message);
+  //         return [];
+  //       }
+
+  //       // Extract issues array
+  //       const issues = parsedContent.issues || [];
+
+  //       if (issues.length === 0) {
+  //         console.warn("⚠️ AI returned 0 issues - this is unusual");
+  //         console.log("Full AI response:", parsedContent);
+  //       } else {
+  //         console.log(`🤖 AI found ${issues.length} issues in this batch`);
+
+  //         // Validate each issue has required fields
+  //         const validIssues = issues.filter((issue) => {
+  //           const hasRequired =
+  //             issue.title &&
+  //             issue.description &&
+  //             issue.issueType &&
+  //             issue.severity &&
+  //             issue.filePath;
+
+  //           if (!hasRequired) {
+  //             console.warn("⚠️ Skipping invalid issue:", issue);
+  //           }
+
+  //           return hasRequired;
+  //         });
+
+  //         console.log(`✅ ${validIssues.length} valid issues after validation`);
+  //         return validIssues;
+  //       }
+
+  //       return issues;
+  //     } catch (error) {
+  //       console.error("❌ AI analysis failed:", error.message);
+  //       if (error.response) {
+  //         console.error("API error details:", error.response.data);
+  //       }
+  //       return [];
+  //     }
+  //   }
+  async analyzeFilesWithAI(files, repository, globalIssueHash = new Set()) {
+    const validFiles = files.filter(Boolean);
     if (validFiles.length === 0) return [];
 
-    const filesContext = validFiles.map((f) => ({
-      path: f.path,
-      name: f.name,
-      content: f.content.substring(0, 4000), // Increased from 3000 to 4000 chars
-    }));
+    // ---------- TOKEN BUDGETING ----------
+    // Target: ~6k tokens total input
+    const MAX_CHARS_PER_FILE = 1200;
+    const MAX_TOTAL_CHARS = 3500;
 
-    const prompt = `You are a critical code reviewer analyzing a ${
-      repository.language || "code"
-    } repository. You MUST find issues - no code is perfect.
+    let totalChars = 0;
+    const trimmedFiles = [];
+
+    for (const file of validFiles) {
+      if (totalChars >= MAX_TOTAL_CHARS) break;
+
+      const content = file.content.slice(0, MAX_CHARS_PER_FILE);
+      totalChars += content.length;
+
+      trimmedFiles.push({
+        path: file.path,
+        content,
+      });
+    }
+
+    if (trimmedFiles.length === 0) return [];
+
+    // ---------- PROMPT ----------
+    const prompt = `
+You are a senior security-focused code reviewer.
 
 Repository: ${repository.repoOwner}/${repository.repoName}
-Language: ${repository.language || "Unknown"}
+Primary Language: ${repository.language || "Unknown"}
 
-Files to analyze:
-${filesContext
+Files:
+${trimmedFiles
   .map(
     (f, i) => `
-File ${i + 1}: ${f.path}
+[File ${i + 1}] ${f.path}
 \`\`\`
 ${f.content}
 \`\`\`
@@ -353,327 +547,104 @@ ${f.content}
   )
   .join("\n")}
 
-YOUR TASK: Find 3-8 issues per batch. Look for REAL problems:
+TASK:
+Find REAL issues only. No filler.
 
-**SECURITY (CRITICAL/HIGH):**
-- Hardcoded secrets/credentials/API keys
-- SQL injection vulnerabilities
-- Missing input validation
-- Insecure dependencies (check package.json)
-- Exposed sensitive data
-- Missing authentication/authorization
-- XSS vulnerabilities
+Rules:
+- Find 3–6 issues total
+- Be specific, quote real code
+- Use real file paths
+- Use approximate line numbers
+- Prefer SECURITY, BUGS, PERFORMANCE
+- Do NOT invent dependencies
 
-**BUGS (HIGH/MEDIUM):**
-- Missing error handling (try-catch, .catch())
-- Unhandled promise rejections
-- Null/undefined reference errors
-- Race conditions
-- Off-by-one errors
-- Incorrect logic
-- Memory leaks
+Return VALID JSON ONLY:
 
-**CODE QUALITY (MEDIUM/LOW):**
-- Complex functions (>50 lines)
-- Duplicated code
-- Poor naming (x, data, temp)
-- Missing JSDoc/comments for complex logic
-- Console.log statements in production
-- Dead code
-- Magic numbers
-
-**PERFORMANCE (MEDIUM/LOW):**
-- N+1 queries
-- Blocking operations in loops
-- Inefficient algorithms (O(n²))
-- Missing pagination
-- Large synchronous operations
-- No caching
-
-**CI/CD (MEDIUM/LOW):**
-- Missing tests
-- No error logging
-- Missing health checks
-- Hardcoded environment values
-- No rate limiting
-
-BE CRITICAL: Every file has issues. Look at:
-- Variable names: Are they clear?
-- Error handling: Is every async operation wrapped?
-- Security: Any hardcoded values?
-- Logic: Any edge cases missed?
-
-Return JSON with "issues" array:
 {
   "issues": [
     {
-      "title": "Specific issue (max 80 chars)",
-      "description": "Why this matters and what could go wrong (2-3 sentences)",
-      "issueType": "security|performance|code-quality|bug|ci-cd",
+      "title": "Short precise title",
+      "description": "Why this is a problem (2 sentences max)",
+      "issueType": "security|bug|performance|code-quality|ci-cd",
       "severity": "CRITICAL|HIGH|MEDIUM|LOW",
-      "filePath": "exact/path/from/above",
-      "lineNumber": 25,
-      "codeSnippet": "const x = await api();",
-      "aiConfidence": 0.9,
-      "aiExplanation": "Specific impact and risk",
-      "suggestedFix": "Exact fix with code example"
+      "filePath": "path/from/above",
+      "lineNumber": 42,
+      "codeSnippet": "problematic code",
+      "confidence": 0.0-1.0,
+      "suggestedFix": "Concrete fix or example"
     }
   ]
 }
+`;
 
-RULES:
-- Find AT LEAST 3 issues, preferably 5-8
-- Be specific - quote actual code
-- Real line numbers where issues exist
-- Actionable fixes
-- Valid JSON only`;
-
+    // ---------- OPENAI CALL ----------
+    let responseText;
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
+      const response = await openai.responses.create({
+        model: "gpt-4.1-mini", // best cost/quality for audits
+        input: [
           {
             role: "system",
             content:
-              "You are a strict senior code reviewer who finds issues in every codebase. NO CODE IS PERFECT. You must find at least 3-8 real issues per batch. Be critical but accurate. Look for security flaws, bugs, poor practices, and quality issues. Return valid JSON only.",
+              "You are a strict senior engineer. You MUST find real issues. Return valid JSON only.",
           },
-          {
-            role: "user",
-            content: prompt,
-          },
+          { role: "user", content: prompt },
         ],
-        temperature: 0.5, // Higher temperature for more thorough analysis
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
+        max_output_tokens: 2000,
       });
 
-      const content = response.choices[0].message.content;
-
-      console.log("🤖 Raw AI response:", content.substring(0, 500) + "...");
-      console.log("📊 Full AI response length:", content.length);
-
-      // Parse the JSON response
-      let parsedContent;
-      try {
-        parsedContent = JSON.parse(content);
-      } catch (parseError) {
-        console.error("❌ Failed to parse AI response:", content);
-        console.error("Parse error:", parseError.message);
-        return [];
-      }
-
-      // Extract issues array
-      const issues = parsedContent.issues || [];
-
-      if (issues.length === 0) {
-        console.error("⚠️ AI returned 0 issues - this should not happen!");
-        console.error(
-          "Full AI response:",
-          JSON.stringify(parsedContent, null, 2)
-        );
-
-        // FALLBACK: Create basic code quality issues for common patterns
-        const fallbackIssues = this.createFallbackIssues(validFiles);
-        if (fallbackIssues.length > 0) {
-          console.log(`🔄 Using ${fallbackIssues.length} fallback issues`);
-          return fallbackIssues;
-        }
-
-        return [];
-      } else {
-        console.log(`🤖 AI found ${issues.length} issues in this batch`);
-
-        // Validate each issue has required fields
-        const validIssues = issues.filter((issue) => {
-          const hasRequired =
-            issue.title &&
-            issue.description &&
-            issue.issueType &&
-            issue.severity &&
-            issue.filePath;
-
-          if (!hasRequired) {
-            console.warn("⚠️ Skipping invalid issue:", issue);
-          }
-
-          return hasRequired;
-        });
-
-        console.log(`✅ ${validIssues.length} valid issues after validation`);
-        return validIssues;
-      }
-
-      return issues;
-    } catch (error) {
-      console.error("❌ AI analysis failed:", error.message);
-      if (error.response) {
-        console.error("API error details:", error.response.data);
-      }
-      return [];
+      responseText = response.output_text;
+    } catch (err) {
+      console.error("❌ OpenAI request failed:", err.message);
+      throw new Error("AI analysis failed");
     }
-  }
 
-  /**
-   * Create fallback issues when AI returns 0
-   */
-  createFallbackIssues(files) {
-    const issues = [];
+    // ---------- PARSE & VALIDATE ----------
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      console.error("❌ Invalid JSON from AI:", responseText);
+      throw new Error("AI returned invalid JSON");
+    }
 
-    for (const file of files) {
-      const content = file.content;
-      const path = file.path;
+    if (!Array.isArray(parsed.issues) || parsed.issues.length === 0) {
+      console.error("❌ AI returned no issues:", parsed);
+      throw new Error("AI returned zero issues");
+    }
 
-      // Check for console.log in production code
-      if (content.includes("console.log") && !path.includes("test")) {
-        issues.push({
-          title: "Console.log statement in production code",
-          description:
-            "Console.log statements should be removed from production code as they can expose sensitive information and impact performance.",
-          issueType: "code-quality",
-          severity: "LOW",
-          filePath: path,
-          lineNumber: this.findLineNumber(content, "console.log"),
-          codeSnippet: this.extractSnippet(content, "console.log"),
-          aiConfidence: 0.95,
-          aiExplanation:
-            "Console logs in production can leak sensitive data and clutter logs",
-          suggestedFix:
-            "Remove console.log or replace with proper logging library (winston, pino)",
-        });
-      }
+    // ---------- NORMALIZE + DEDUP ----------
+    const normalizedIssues = [];
 
-      // Check for missing error handling in async functions
+    for (const issue of parsed.issues) {
       if (
-        (content.includes("async ") || content.includes("await ")) &&
-        !content.includes("try") &&
-        !content.includes("catch")
+        !issue.title ||
+        !issue.filePath ||
+        !issue.severity ||
+        !issue.issueType
       ) {
-        issues.push({
-          title: "Missing error handling in async function",
-          description:
-            "Async functions without try-catch blocks can cause unhandled promise rejections and application crashes.",
-          issueType: "bug",
-          severity: "HIGH",
-          filePath: path,
-          lineNumber: this.findLineNumber(content, "async"),
-          codeSnippet: this.extractSnippet(content, "async"),
-          aiConfidence: 0.85,
-          aiExplanation:
-            "Unhandled promise rejections can crash Node.js applications",
-          suggestedFix: "Wrap async operations in try-catch blocks",
-        });
+        continue;
       }
 
-      // Check for hardcoded credentials
-      const credentialPatterns = [
-        "password",
-        "secret",
-        "api_key",
-        "apiKey",
-        "token",
-        "AWS_ACCESS",
-        "private_key",
-        "client_secret",
-      ];
+      // Normalize confidence
+      const confidence =
+        typeof issue.confidence === "number"
+          ? Math.min(Math.max(issue.confidence, 0.3), 0.95)
+          : 0.6;
 
-      for (const pattern of credentialPatterns) {
-        if (
-          content.toLowerCase().includes(pattern.toLowerCase()) &&
-          (content.includes("=") || content.includes(":"))
-        ) {
-          issues.push({
-            title: `Possible hardcoded credential: ${pattern}`,
-            description:
-              "Hardcoded credentials in source code pose a serious security risk and should be moved to environment variables.",
-            issueType: "security",
-            severity: "CRITICAL",
-            filePath: path,
-            lineNumber: this.findLineNumber(content, pattern),
-            codeSnippet: this.extractSnippet(content, pattern),
-            aiConfidence: 0.75,
-            aiExplanation:
-              "Exposed credentials can lead to unauthorized access",
-            suggestedFix:
-              "Move credentials to environment variables (.env) and use process.env",
-          });
-          break; // Only report once per file
-        }
-      }
+      // Dedup hash (cross-batch safe)
+      const hash = `${issue.filePath}|${issue.title}`.toLowerCase();
+      if (globalIssueHash.has(hash)) continue;
 
-      // Check for missing input validation
-      if (
-        (content.includes("req.body") || content.includes("req.params")) &&
-        !content.includes("validate") &&
-        !content.includes("joi") &&
-        !content.includes("zod")
-      ) {
-        issues.push({
-          title: "Missing input validation",
-          description:
-            "API endpoints should validate all incoming data to prevent injection attacks and data corruption.",
-          issueType: "security",
-          severity: "HIGH",
-          filePath: path,
-          lineNumber: this.findLineNumber(content, "req.body"),
-          codeSnippet: this.extractSnippet(content, "req.body"),
-          aiConfidence: 0.8,
-          aiExplanation:
-            "Unvalidated input can lead to SQL injection, XSS, and other attacks",
-          suggestedFix:
-            "Add input validation using joi, zod, or express-validator",
-        });
-      }
+      globalIssueHash.add(hash);
 
-      // Check for large functions
-      const lines = content.split("\n");
-      if (lines.length > 100) {
-        issues.push({
-          title: "Large file needs refactoring",
-          description: `File has ${lines.length} lines. Large files are harder to maintain, test, and debug. Consider breaking into smaller modules.`,
-          issueType: "code-quality",
-          severity: "MEDIUM",
-          filePath: path,
-          lineNumber: 1,
-          codeSnippet: content.substring(0, 200),
-          aiConfidence: 0.9,
-          aiExplanation: "Large files violate single responsibility principle",
-          suggestedFix: "Break into smaller, focused modules",
-        });
-      }
-
-      // Limit to 3 issues per file
-      if (issues.length >= 10) break;
+      normalizedIssues.push({
+        ...issue,
+        confidence,
+      });
     }
 
-    return issues.slice(0, 10); // Return max 10 fallback issues
-  }
-
-  /**
-   * Find line number of pattern in content
-   */
-  findLineNumber(content, pattern) {
-    const lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(pattern)) {
-        return i + 1;
-      }
-    }
-    return 1;
-  }
-
-  /**
-   * Extract code snippet around pattern
-   */
-  extractSnippet(content, pattern) {
-    const lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(pattern)) {
-        const start = Math.max(0, i - 2);
-        const end = Math.min(lines.length, i + 3);
-        return lines.slice(start, end).join("\n");
-      }
-    }
-    return content.substring(0, 200);
+    return normalizedIssues;
   }
 
   /**
