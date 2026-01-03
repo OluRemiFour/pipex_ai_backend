@@ -1,4 +1,3 @@
-// src/services/analysisService.js - CREATE THIS FILE
 const path = require("path");
 
 require("dotenv").config({
@@ -10,7 +9,7 @@ const OpenAI = require("openai");
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService"); // ADD THIS
+const auditService = require("./auditService");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
