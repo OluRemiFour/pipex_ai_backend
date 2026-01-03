@@ -10,7 +10,17 @@ const OpenAI = require("openai");
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
-const auditService = require("./auditService"); // ADD THIS
+const auditService = require("./auditService");
+const {
+  getClient,
+  rotateKey,
+  isQuotaError,
+  getKeyCount,
+} = require("../utils/openaiKeyManager");
+let responseText;
+let lastError;
+
+const maxAttempts = getKeyCount();
 
 // const openai = new OpenAI({
 //   apiKey: process.env.OPENAI_API_KEY,
@@ -613,9 +623,7 @@ Return VALID JSON ONLY:
     //   throw new Error("AI returned zero issues");
     // }
 
-    let responseText;
-
-    for (let attempt = 0; attempt < MAX_KEYS; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const openai = getClient();
 
@@ -630,18 +638,22 @@ Return VALID JSON ONLY:
         });
 
         responseText = response.output_text;
-        break;
+        break; // ✅ success
       } catch (err) {
+        lastError = err;
+
         if (isQuotaError(err)) {
+          console.error("⚠️ Quota exceeded — rotating OpenAI key");
           rotateKey();
           continue;
         }
-        throw err;
+
+        throw err; // non-quota error → fail fast
       }
     }
 
     if (!responseText) {
-      throw new Error("OpenAI unavailable (all keys exhausted)");
+      throw new Error(`OpenAI unavailable: all ${maxAttempts} keys exhausted`);
     }
 
     let parsed;
