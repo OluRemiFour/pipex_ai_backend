@@ -502,6 +502,7 @@ class AnalysisService {
   //       return [];
   //     }
   //   }
+
   async analyzeFilesWithAI(files, repository, globalIssueHash = new Set()) {
     const validFiles = files.filter(Boolean);
     if (validFiles.length === 0) return [];
@@ -576,6 +577,45 @@ Return VALID JSON ONLY:
   ]
 }
 `;
+
+    // Define extractJSON if missing
+    const extractJSON = (text) => {
+      if (!text) throw new Error("Empty response");
+
+      // Clean the response
+      const cleanText = text.trim();
+
+      // Try direct parse
+      try {
+        return JSON.parse(cleanText);
+      } catch (directErr) {
+        // Look for JSON object/array
+        const jsonObjMatch = cleanText.match(/(\{[\s\S]*\})/);
+        const jsonArrMatch = cleanText.match(/(\[[\s\S]*\])/);
+
+        const jsonMatch = jsonObjMatch || jsonArrMatch;
+
+        if (!jsonMatch) {
+          throw new Error(`No JSON found in: ${cleanText.slice(0, 100)}...`);
+        }
+
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (matchErr) {
+          // Last resort: try to fix common issues
+          const fixed = jsonMatch[0]
+            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+            .replace(/:\s*'([^']*)'/g, ': "$1"')
+            .replace(/,\s*([}\]])/g, "$1");
+
+          try {
+            return JSON.parse(fixed);
+          } catch (finalErr) {
+            throw new Error(`Could not parse JSON: ${finalErr.message}`);
+          }
+        }
+      }
+    };
 
     // ---------- OPENAI CALL ----------
     let responseText;
