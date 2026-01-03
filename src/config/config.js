@@ -98,8 +98,12 @@ const config = {
 
   // OpenAI - Multiple API keys for rotation
   openaiApiKeys: process.env.OPENAI_API_KEYS
-    ? process.env.OPENAI_API_KEYS.split(",").map((key) => key.trim())
-    : [process.env.OPENAI_API_KEY].filter(Boolean),
+    ? process.env.OPENAI_API_KEYS.split(",")
+        .map((key) => key.trim())
+        .filter((key) => key.length > 0)
+    : process.env.OPENAI_API_KEY
+    ? [process.env.OPENAI_API_KEY.trim()]
+    : [],
 
   // CORS
   corsOptions: {

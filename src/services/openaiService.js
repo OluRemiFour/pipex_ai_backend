@@ -288,10 +288,11 @@ class OpenAIService {
     this.initializationPromise = (async () => {
       try {
         // Load config lazily
-        const config = require("../config");
+        const config = require("../config/config");
 
         // Get API keys from config
         this.apiKeys = config.openaiApiKeys || [];
+        key = this.apiKeys[0];
 
         if (this.apiKeys.length === 0) {
           throw new Error(
@@ -323,7 +324,6 @@ class OpenAIService {
 
     return this.initializationPromise;
   }
-
   /**
    * Initialize key status tracking
    */
