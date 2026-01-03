@@ -73,6 +73,16 @@ const PullRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  lastSyncedAt: {
+    type: Date,
+    default: null,
+  },
+
+  syncStatus: {
+    type: String,
+    enum: ["pending", "synced", "failed"],
+    default: "pending",
+  },
   mergedAt: Date,
   closedAt: Date,
 });

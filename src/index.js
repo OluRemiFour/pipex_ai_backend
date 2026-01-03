@@ -12,10 +12,11 @@ const express = require("express");
 // Import routes
 const authRoutes = require("./routes/auth");
 const repositoriesRoutes = require("./routes/repositories");
-const issuesRoutes = require("./routes/issues"); // ADD THIS
-const pullRequestsRoutes = require("./routes/pullRequests"); // ADD THIS
-const webhooksRoutes = require("./routes/webhooks"); // ADD THIS
-const auditRoutes = require("./routes/audit"); // ADD THIS
+const issuesRoutes = require("./routes/issues");
+const pullRequestsRoutes = require("./routes/pullRequests");
+const webhooksRoutes = require("./routes/webhooks");
+const auditRoutes = require("./routes/audit");
+const prSyncService = require("./services/prSyncService");
 
 const app = express();
 app.use(cookieParser());
@@ -38,6 +39,10 @@ const limiter = rateLimit({
   max: 100, // limit each IP to 100 requests per windowMs
 });
 app.use("/api/", limiter);
+
+if (process.env.NODE_ENV === "production") {
+  prSyncService.startPeriodicSync();
+}
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));

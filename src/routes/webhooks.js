@@ -3,7 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const PullRequest = require("../models/PullRequest");
 const Issue = require("../models/Issue");
-const auditService = require("../services/auditService"); // ADD THIS
+const auditService = require("../services/auditService");
 const config = require("../config");
 
 const router = express.Router();
@@ -71,11 +71,83 @@ router.post(
 /**
  * Handle pull request events
  */
+// async function handlePullRequestEvent(payload) {
+//   const action = payload.action;
+//   const pr = payload.pull_request;
+
+//   console.log(`🔀 PR #${pr.number} - Action: ${action}`);
+
+//   // Find PR in database
+//   const dbPr = await PullRequest.findOne({ githubPrId: pr.id });
+
+//   if (!dbPr) {
+//     console.log("ℹ️ PR not found in database (not created by Pipex AI)");
+//     return;
+//   }
+
+//   // Update PR status based on action
+//   switch (action) {
+//     case "closed":
+//       dbPr.status = pr.merged ? "merged" : "closed";
+//       dbPr.updatedAt = new Date();
+
+//       if (pr.merged) {
+//         dbPr.mergedAt = new Date(pr.merged_at);
+//         console.log(`✅ PR #${pr.number} merged`);
+
+//         // Log PR merge
+//         await auditService.logPRMerge(dbPr.userId, dbPr.repositoryId, dbPr);
+
+//         // Update related issue
+//         if (dbPr.issueId) {
+//           const issue = await Issue.findByIdAndUpdate(dbPr.issueId, {
+//             status: "resolved",
+//             resolvedAt: new Date(),
+//           });
+//           console.log(`✅ Issue ${dbPr.issueId} marked as resolved`);
+
+//           // Log issue resolution
+//           if (issue) {
+//             await auditService.logIssueResolution(
+//               dbPr.userId,
+//               dbPr.repositoryId,
+//               issue
+//             );
+//           }
+//         }
+//       } else {
+//         dbPr.closedAt = new Date(pr.closed_at);
+//         console.log(`🚫 PR #${pr.number} closed without merging`);
+//       }
+
+//       await dbPr.save();
+//       break;
+
+//     case "opened":
+//     case "reopened":
+//       dbPr.status = "open";
+//       dbPr.updatedAt = new Date();
+//       await dbPr.save();
+//       console.log(`🔓 PR #${pr.number} opened/reopened`);
+//       break;
+
+//     case "synchronize":
+//       // PR was updated with new commits
+//       dbPr.updatedAt = new Date();
+//       await dbPr.save();
+//       console.log(`🔄 PR #${pr.number} synchronized`);
+//       break;
+
+//     default:
+//       console.log(`ℹ️ Unhandled PR action: ${action}`);
+//   }
+// }
+
 async function handlePullRequestEvent(payload) {
   const action = payload.action;
   const pr = payload.pull_request;
 
-  console.log(`🔀 PR #${pr.number} - Action: ${action}`);
+  console.log(`🔀 PR #${pr.number} - Action: ${action} - Merged: ${pr.merged}`);
 
   // Find PR in database
   const dbPr = await PullRequest.findOne({ githubPrId: pr.id });
@@ -85,29 +157,38 @@ async function handlePullRequestEvent(payload) {
     return;
   }
 
+  // Log PR event for debugging
+  console.log(`📝 PR Database Status: ${dbPr.status}, Issue: ${dbPr.issueId}`);
+
   // Update PR status based on action
   switch (action) {
     case "closed":
-      dbPr.status = pr.merged ? "merged" : "closed";
+      const previousStatus = dbPr.status;
+      const isMerged = pr.merged === true;
+
+      dbPr.status = isMerged ? "merged" : "closed";
       dbPr.updatedAt = new Date();
 
-      if (pr.merged) {
+      if (isMerged) {
         dbPr.mergedAt = new Date(pr.merged_at);
-        console.log(`✅ PR #${pr.number} merged`);
+        console.log(`✅ PR #${pr.number} merged (was: ${previousStatus})`);
 
-        // Log PR merge
-        await auditService.logPRMerge(dbPr.userId, dbPr.repositoryId, dbPr);
-
-        // Update related issue
+        // Update related issue if it exists
         if (dbPr.issueId) {
-          const issue = await Issue.findByIdAndUpdate(dbPr.issueId, {
-            status: "resolved",
-            resolvedAt: new Date(),
-          });
-          console.log(`✅ Issue ${dbPr.issueId} marked as resolved`);
+          const issue = await Issue.findByIdAndUpdate(
+            dbPr.issueId,
+            {
+              status: "resolved",
+              resolvedAt: new Date(),
+              pullRequestStatus: "merged",
+              lastUpdatedAt: new Date(),
+            },
+            { new: true } // Return the updated document
+          );
 
-          // Log issue resolution
           if (issue) {
+            console.log(`✅ Issue ${dbPr.issueId} marked as resolved`);
+            // Log issue resolution
             await auditService.logIssueResolution(
               dbPr.userId,
               dbPr.repositoryId,
@@ -115,9 +196,31 @@ async function handlePullRequestEvent(payload) {
             );
           }
         }
+
+        // Log PR merge
+        await auditService.logPRMerge(dbPr.userId, dbPr.repositoryId, dbPr);
       } else {
         dbPr.closedAt = new Date(pr.closed_at);
-        console.log(`🚫 PR #${pr.number} closed without merging`);
+        console.log(
+          `🚫 PR #${pr.number} closed without merging (was: ${previousStatus})`
+        );
+
+        // If PR was closed without merging, update issue status
+        if (dbPr.issueId && previousStatus === "open") {
+          const issue = await Issue.findByIdAndUpdate(
+            dbPr.issueId,
+            {
+              status: "detected", // Revert to detected
+              pullRequestStatus: "closed",
+              lastUpdatedAt: new Date(),
+            },
+            { new: true }
+          );
+
+          if (issue) {
+            console.log(`🔄 Issue ${dbPr.issueId} reverted to detected status`);
+          }
+        }
       }
 
       await dbPr.save();
@@ -127,6 +230,22 @@ async function handlePullRequestEvent(payload) {
     case "reopened":
       dbPr.status = "open";
       dbPr.updatedAt = new Date();
+
+      // Update issue status if it was previously resolved
+      if (dbPr.issueId) {
+        const issue = await Issue.findById(dbPr.issueId);
+        if (issue && issue.status === "resolved") {
+          await Issue.findByIdAndUpdate(dbPr.issueId, {
+            status: "detected",
+            pullRequestStatus: "reopened",
+            lastUpdatedAt: new Date(),
+          });
+          console.log(
+            `🔄 Issue ${dbPr.issueId} reverted to detected (PR reopened)`
+          );
+        }
+      }
+
       await dbPr.save();
       console.log(`🔓 PR #${pr.number} opened/reopened`);
       break;
@@ -181,6 +300,121 @@ async function handlePushEvent(payload) {
     }
   }
 }
+
+/**
+ * POST /api/webhooks/sync-pr-status
+ * Manually sync PR status from GitHub (useful for debugging)
+ */
+router.post("/sync-pr-status", express.json(), async (req, res) => {
+  try {
+    const { repositoryId, prNumber } = req.body;
+
+    if (!repositoryId || !prNumber) {
+      return res.status(400).json({
+        success: false,
+        error: "repositoryId and prNumber are required",
+      });
+    }
+
+    // Find the repository
+    const Repository = require("../models/Repository");
+    const repository = await Repository.findById(repositoryId);
+
+    if (!repository) {
+      return res.status(404).json({
+        success: false,
+        error: "Repository not found",
+      });
+    }
+
+    // Find the PR in database
+    const dbPr = await PullRequest.findOne({
+      repositoryId,
+      prNumber,
+    });
+
+    if (!dbPr) {
+      return res.status(404).json({
+        success: false,
+        error: "PR not found in database",
+      });
+    }
+
+    // Find user who created the PR (to get GitHub token)
+    const User = require("../models/User");
+    const user = await User.findById(dbPr.userId);
+
+    if (!user || !user.githubAccessToken) {
+      return res.status(400).json({
+        success: false,
+        error: "User GitHub token not available",
+      });
+    }
+
+    // Fetch current PR status from GitHub API
+    const axios = require("axios");
+    const githubResponse = await axios.get(
+      `https://api.github.com/repos/${repository.repoOwner}/${repository.repoName}/pulls/${prNumber}`,
+      {
+        headers: {
+          Authorization: `Bearer ${user.githubAccessToken}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Pipex-AI-DevOps",
+        },
+      }
+    );
+
+    const githubPr = githubResponse.data;
+    const wasMerged = githubPr.merged === true;
+    const wasClosed = githubPr.state === "closed";
+
+    // Update database status
+    if (wasMerged) {
+      dbPr.status = "merged";
+      dbPr.mergedAt = new Date(githubPr.merged_at);
+      console.log(`✅ Manually synced PR #${prNumber}: Merged`);
+
+      // Update issue if exists
+      if (dbPr.issueId) {
+        await Issue.findByIdAndUpdate(dbPr.issueId, {
+          status: "resolved",
+          resolvedAt: new Date(),
+          lastUpdatedAt: new Date(),
+        });
+        console.log(`✅ Issue ${dbPr.issueId} marked as resolved`);
+      }
+    } else if (wasClosed) {
+      dbPr.status = "closed";
+      dbPr.closedAt = new Date(githubPr.closed_at);
+      console.log(`🚫 Manually synced PR #${prNumber}: Closed without merge`);
+    } else {
+      dbPr.status = "open";
+      console.log(`🔓 Manually synced PR #${prNumber}: Open`);
+    }
+
+    dbPr.updatedAt = new Date();
+    await dbPr.save();
+
+    res.json({
+      success: true,
+      message: "PR status synced successfully",
+      pr: {
+        id: dbPr._id,
+        number: dbPr.prNumber,
+        status: dbPr.status,
+        merged: wasMerged,
+        closed: wasClosed,
+      },
+    });
+  } catch (error) {
+    console.error("❌ PR sync error:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: "Failed to sync PR status",
+    });
+  }
+});
 
 /**
  * GET /api/webhooks/test
