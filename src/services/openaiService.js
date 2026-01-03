@@ -292,7 +292,6 @@ class OpenAIService {
 
         // Get API keys from config
         this.apiKeys = config.openaiApiKeys || [];
-        key = this.apiKeys[0];
 
         if (this.apiKeys.length === 0) {
           throw new Error(
