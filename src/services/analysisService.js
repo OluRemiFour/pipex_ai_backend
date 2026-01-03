@@ -12,9 +12,9 @@ const Repository = require("../models/Repository");
 const User = require("../models/User");
 const auditService = require("./auditService"); // ADD THIS
 
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY,
-// });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // console.log("🔑 OpenAI API Key loaded:", !!process.env.OPENAI_API_KEY);
 
