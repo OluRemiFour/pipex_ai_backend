@@ -1,11 +1,11 @@
-// src/services/analysisService.js - CREATE THIS FILE
+// src/services/analysisService.js
 const path = require("path");
 require("dotenv").config({
   path: path.resolve(__dirname, "../../.env"),
 });
 
 const axios = require("axios");
-const openaiService = require("./openaiService"); // Changed from direct OpenAI import
+const openaiService = require("./openaiService"); 
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
