@@ -56,7 +56,7 @@ const requiredVars = [
   "GOOGLE_CLIENT_SECRET",
   "GITHUB_CLIENT_ID",
   "GITHUB_CLIENT_SECRET",
-  "OPENAI_API_KEY",
+  // "OPENAI_API_KEYS",
 ];
 
 requiredVars.forEach((varName) => {

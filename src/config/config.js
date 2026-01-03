@@ -69,7 +69,6 @@
 
 // module.exports = config;
 
-// src/config.js
 require("dotenv").config();
 
 const config = {
@@ -130,15 +129,20 @@ const requiredVars = [
   "GITHUB_CLIENT_ID",
   "GITHUB_CLIENT_SECRET",
   "GITHUB_WEBHOOK_SECRET",
+  // REMOVE "OPENAI_API_KEY" from required vars
 ];
 
-// Check if we have at least one OpenAI API key
+// ✅ FIXED: Check if we have OpenAI keys (either multiple or single)
 if (config.openaiApiKeys.length === 0) {
-  console.error(
-    "❌ Missing required environment variable: OPENAI_API_KEY or OPENAI_API_KEYS"
-  );
+  console.error("❌ Missing OpenAI API keys. Please set either:");
+  console.error("   - OPENAI_API_KEYS=key1,key2,key3 (multiple keys)");
+  console.error("   - OR OPENAI_API_KEY=single-key (single key)");
   process.exit(1);
 }
+
+// Log OpenAI key status for debugging
+console.log(`✅ Loaded ${config.openaiApiKeys.length} OpenAI API key(s)`);
+console.log(`   First key: ${config.openaiApiKeys[0].substring(0, 8)}...`);
 
 requiredVars.forEach((varName) => {
   if (!process.env[varName]) {

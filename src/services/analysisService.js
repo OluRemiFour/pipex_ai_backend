@@ -5,7 +5,7 @@ require("dotenv").config({
 });
 
 const axios = require("axios");
-const openaiService = require("./openaiService"); 
+const openaiService = require("./openaiService");
 const Issue = require("../models/Issue");
 const Repository = require("../models/Repository");
 const User = require("../models/User");
@@ -35,7 +35,6 @@ class AnalysisService {
       ".env.example",
     ];
   }
-
   /**
    * Analyze a repository for issues
    */
@@ -451,7 +450,11 @@ Return VALID JSON ONLY:
       // Log the key status for debugging
       console.log("OpenAI Key Status:", openaiService.getAllKeyStatus());
 
-      if (err.message.includes("quota") || err.status === 429) {
+      if (
+        err.message.includes("quota") ||
+        err.status === 429 ||
+        err.message.includes("exhausted")
+      ) {
         throw new Error(
           "All OpenAI API keys have exceeded quota. Please add more keys."
         );
