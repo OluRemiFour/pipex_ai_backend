@@ -416,7 +416,8 @@ class OpenAIService {
         model: options.model || "gpt-4o-mini",
         messages,
         temperature: options.temperature || 0.2,
-        max_tokens: options.max_tokens || 2000,
+        // max_tokens: options.max_tokens || 2000,
+        max_tokens: 2000,
         ...options,
       });
     }, options);
@@ -430,7 +431,8 @@ class OpenAIService {
       return client.responses.create({
         model: options.model || "gpt-4.1-mini",
         input,
-        max_output_tokens: options.max_output_tokens || 2000,
+        // max_output_tokens: options.max_output_tokens || 2000,
+        max_output_tokens: 2000,
         ...options,
       });
     }, options);
